@@ -2,6 +2,7 @@ import argparse
 import torch
 from experiments.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from experiments.exp_long_term_forecasting_partial import Exp_Long_Term_Forecast_Partial
+from experiments.exp_ttt import Exp_TTT
 import random
 import numpy as np
 
@@ -87,6 +88,11 @@ if __name__ == '__main__':
     parser.add_argument('--partial_start_index', type=int, default=0, help='the start index of variates for partial training, '
                                                                            'you can select [partial_start_index, min(enc_in + partial_start_index, N)]')
 
+    # TTT
+    parser.add_argument('--use_ttt', action='store_true', help='whether to use Test-Time Training', default=False)
+    parser.add_argument('--ttt_lr', type=float, default=0.0001, help='learning rate for TTT')
+    parser.add_argument('--ttt_steps', type=int, default=1, help='number of gradient steps for TTT')
+
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
@@ -101,6 +107,9 @@ if __name__ == '__main__':
 
     if args.exp_name == 'partial_train': # See Figure 8 of our paper, for the detail
         Exp = Exp_Long_Term_Forecast_Partial
+    elif args.use_ttt:
+        print(">>> Using Test-Time Training (TTT) Experiment <<<")
+        Exp = Exp_TTT
     else: # MTSF: multivariate time series forecasting
         Exp = Exp_Long_Term_Forecast
 
