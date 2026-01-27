@@ -9,6 +9,8 @@ import os
 import time
 import warnings
 import numpy as np
+import csv
+import datetime
 
 warnings.filterwarnings('ignore')
 
@@ -269,6 +271,28 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         f.write('\n')
         f.write('\n')
         f.close()
+
+        # New CSV logging
+        summary_path = './test_results/summary.csv'
+        if not os.path.exists('./test_results'):
+            os.makedirs('./test_results')
+            
+        file_exists = os.path.isfile(summary_path)
+        with open(summary_path, 'a', newline='') as csvfile:
+            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'setting']
+            writer = csv.DictWriter(csvfile, fieldnames=headers)
+            if not file_exists:
+                writer.writeheader()
+            
+            writer.writerow({
+                'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'model_id': self.args.model_id,
+                'model': self.args.model,
+                'data': self.args.data,
+                'mse': mse,
+                'mae': mae,
+                'setting': setting
+            })
 
         np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
         np.save(folder_path + 'pred.npy', preds)
