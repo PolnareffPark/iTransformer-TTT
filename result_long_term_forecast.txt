@@ -16,3 +16,9 @@ mse:0.4156939387321472, mae:0.42281100153923035
 ETTh1_96_96_iTransformer_ETTh1_M_ft96_sl48_ll96_pl512_dm8_nh2_el1_dl512_df3_fctimeF_ebTrue_dtBaselineB32_projection_0  
 mse:0.40078356862068176, mae:0.41505637764930725
 
+ETTh1_96_96_iTransformer_ETTh1_M_ft96_sl48_ll96_pl512_dm8_nh2_el1_dl512_df3_fctimeF_ebTrue_dtBenchmark_projection_0  
+mse:0.40046316385269165, mae:0.4164166748523712
+
+ETTh1_96_96_iTransformer_ETTh1_M_ft96_sl48_ll96_pl512_dm8_nh2_el1_dl512_df3_fctimeF_ebTrue_dtBenchmark_projection_0  
+mse:0.40046316385269165, mae:0.4164166748523712
+

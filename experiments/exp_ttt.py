@@ -130,7 +130,7 @@ class Exp_TTT(Exp_Long_Term_Forecast):
                 pad_mark = torch.zeros(batch_x_mark.shape[0], pad_len, batch_x_mark.shape[2], device=batch_x_mark.device)
                 sub_mark = batch_x_mark[:, :sub_in_len, :]
                 proxy_x_mark = torch.cat([pad_mark, sub_mark], dim=1)
-                proxy_y_mark = batch_y_mark 
+                proxy_y_mark = batch_x_mark[:, sub_in_len:, :]
             else:
                 proxy_x_mark = None
                 proxy_y_mark = None
