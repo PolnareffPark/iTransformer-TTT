@@ -3,78 +3,73 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from math import sqrt
+from layers.Learnable_Grouping import LearnableGrouping, VariateReconstruction
 
 class HierarchicalAttention(nn.Module):
-    def __init__(self, num_groups, attention_dropout=0.1, output_attention=False):
+    def __init__(self, n_vars, num_groups, d_model, attention_dropout=0.1, output_attention=False):
         super(HierarchicalAttention, self).__init__()
         self.num_groups = num_groups
         self.output_attention = output_attention
         self.dropout = nn.Dropout(attention_dropout)
         
+        self.grouping = LearnableGrouping(n_vars, num_groups, d_model, dropout=attention_dropout)
+        self.reconstruction = VariateReconstruction(d_model)
+        self.inner_attention = FullAttention(attention_dropout, output_attention)
+        
     def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
-        # queries: (B, N, H, D) where N is number of variates
+        """
+        queries: (B, N, H, D)
+        Note: Hierarchical logic for Inverted dimension (N = variates)
+        """
         B, N, H, D = queries.shape
-        G = self.num_groups
+        E = H * D # Total embedding dim
         
-        # 1. Padding if N is not divisible by G
-        pad_len = (G - (N % G)) % G
-        if pad_len > 0:
-            queries = F.pad(queries, (0, 0, 0, 0, 0, pad_len))
-            keys = F.pad(keys, (0, 0, 0, 0, 0, pad_len))
-            values = F.pad(values, (0, 0, 0, 0, 0, pad_len))
+        # Reshape to (B, N, E) for grouping logic
+        q_v = queries.reshape(B, N, E)
+        k_v = keys.reshape(B, N, E)
+        v_v = values.reshape(B, N, E)
         
-        N_padded = N + pad_len
-        M = N_padded // G # Variates per group
+        # 1. Learnable Grouping: (B, G, E)
+        # We use queries to decide grouping (can also use a separate context)
+        group_reps, assignment_weights = self.grouping(q_v) # reps: (B, G, E), weights: (B, N, G)
         
-        # 2. Reshape for Intra-group Attention
-        # (B, G, M, H, D)
-        q_grouped = queries.view(B, G, M, H, D)
-        k_grouped = keys.view(B, G, M, H, D)
-        v_grouped = values.view(B, G, M, H, D)
+        # 2. Inter-group (Global) Attention
+        # Transform group_reps back to (B, G, H, D) for multi-head attention
+        q_global = group_reps.view(B, self.num_groups, H, D)
+        k_global = k_v.view(B, N, H, D).mean(dim=1, keepdim=True).expand(-1, self.num_groups, -1, -1) # Simplified global context
+        v_global = v_v.view(B, N, H, D).mean(dim=1, keepdim=True).expand(-1, self.num_groups, -1, -1)
         
-        # Intra-group Attention: (B*G, H, M, D)
-        q_intra = q_grouped.transpose(2, 3).reshape(B * G, H, M, D)
-        k_intra = k_grouped.transpose(2, 3).reshape(B * G, H, M, D)
-        v_intra = v_grouped.transpose(2, 3).reshape(B * G, H, M, D)
+        # Global Attention between groups (or group-to-all)
+        # For efficiency, we can do self-attention among group_reps
+        out_global_reps, attn_global = self.inner_attention(q_global, q_global, q_global, None) # (B, G, H, D)
         
-        scale = 1. / sqrt(D)
+        # 3. Reconstruction (Broadcasting back to N variates)
+        # out_global_reps: (B, G, E)
+        out_global_reps = out_global_reps.reshape(B, self.num_groups, E)
+        out_v = self.reconstruction(out_global_reps, assignment_weights) # (B, N, E)
         
-        # scores: (B*G, H, M, M)
-        scores_intra = torch.matmul(q_intra, k_intra.transpose(-1, -2)) * scale
-        attn_intra = self.dropout(torch.softmax(scores_intra, dim=-1))
-        out_intra = torch.matmul(attn_intra, v_intra) # (B*G, H, M, D)
+        # 4. Intra-group (Local) Refinement
+        # Residual connection and final reshape
+        out = out_v.reshape(B, N, H, D)
         
-        # 3. Inter-group (Global) Attention
-        # First, pool to get group representatives: (B, G, H, D)
-        q_global = q_grouped.mean(dim=2) # (B, G, H, D)
-        k_global = k_grouped.mean(dim=2)
-        v_global = v_grouped.mean(dim=2)
-        
-        # Transpose for attention: (B, H, G, D)
-        q_global = q_global.transpose(1, 2)
-        k_global = k_global.transpose(1, 2)
-        v_global = v_global.transpose(1, 2)
-        
-        scores_global = torch.matmul(q_global, k_global.transpose(-1, -2)) * scale
-        attn_global = self.dropout(torch.softmax(scores_global, dim=-1))
-        out_global = torch.matmul(attn_global, v_global) # (B, H, G, D)
-        
-        # 4. Combine (Residual-like sum/expand)
-        # out_global: (B, H, G, D) -> (B, G, H, D) -> (B, G, M, H, D)
-        out_global = out_global.transpose(1, 2).unsqueeze(2).expand(B, G, M, H, D)
-        
-        # out_intra: (B*G, H, M, D) -> (B, G, H, M, D) -> (B, G, M, H, D)
-        out_intra = out_intra.view(B, G, H, M, D).transpose(2, 3)
-        
-        # Sum of Local + Global
-        out = out_intra + out_global
-        
-        # 5. Reshape back to (B, N, H, D)
-        out = out.reshape(B, N_padded, H, D)
-        if pad_len > 0:
-            out = out[:, :N, :, :]
-            
         if self.output_attention:
-            return out, attn_intra # returning only local attn for now
+            return out, attn_global
         else:
             return out, None
+
+class FullAttention(nn.Module):
+    """Simplified Multi-head Attention logic for internal use"""
+    def __init__(self, dropout=0.1, output_attention=False):
+        super(FullAttention, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.output_attention = output_attention
+
+    def forward(self, queries, keys, values, attn_mask):
+        B, L, H, D = queries.shape
+        scale = 1. / sqrt(D)
+        
+        scores = torch.einsum("blhd,bshd->bhls", queries, keys)
+        A = self.dropout(torch.softmax(scale * scores, dim=-1))
+        V = torch.einsum("bhls,bshd->blhd", A, values)
+        
+        return V.contiguous(), A

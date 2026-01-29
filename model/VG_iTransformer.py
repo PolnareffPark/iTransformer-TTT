@@ -29,7 +29,8 @@ class Model(nn.Module):
             [
                 EncoderLayer(
                     AttentionLayer(
-                        HierarchicalAttention(self.num_groups, attention_dropout=configs.dropout,
+                        HierarchicalAttention(configs.enc_in, self.num_groups, configs.d_model,
+                                            attention_dropout=configs.dropout,
                                             output_attention=configs.output_attention), 
                         configs.d_model, configs.n_heads),
                     configs.d_model,
