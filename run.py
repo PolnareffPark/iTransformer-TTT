@@ -93,6 +93,9 @@ if __name__ == '__main__':
     parser.add_argument('--ttt_lr', type=float, default=0.0001, help='learning rate for TTT')
     parser.add_argument('--ttt_steps', type=int, default=1, help='number of gradient steps for TTT')
 
+    # VG-iT
+    parser.add_argument('--num_groups', type=int, default=8, help='number of groups for VG-iT')
+
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
