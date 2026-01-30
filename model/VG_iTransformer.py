@@ -5,6 +5,7 @@ from layers.Transformer_EncDec import Encoder, EncoderLayer
 from layers.SelfAttention_Family import AttentionLayer
 from layers.Embed import DataEmbedding_inverted
 from layers.Hierarchical_Attention import HierarchicalAttention
+from layers.Learnable_Grouping import LearnableGrouping, VariateReconstruction
 import numpy as np
 
 
@@ -18,20 +19,29 @@ class Model(nn.Module):
         
         # VG-iT Specific
         self.num_groups = getattr(configs, 'num_groups', 8)
-        
+        self.use_learnable_grouping = getattr(configs, 'use_learnable_grouping', False)
+        self.pooling = getattr(configs, 'pooling', 'statistical')
+
         # Embedding
         self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
                                                     configs.dropout)
         self.class_strategy = configs.class_strategy
         
+        # Optional: Learnable Grouping Layer
+        if self.use_learnable_grouping:
+            self.grouping_layer = LearnableGrouping(configs.enc_in, self.num_groups, configs.d_model, configs.dropout)
+            self.reconstruction_layer = VariateReconstruction(configs.d_model)
+
         # Encoder with Hierarchical Attention
         self.encoder = Encoder(
             [
                 EncoderLayer(
                     AttentionLayer(
                         HierarchicalAttention(configs.enc_in, self.num_groups, configs.d_model,
+                                            n_heads=configs.n_heads,
                                             attention_dropout=configs.dropout,
-                                            output_attention=configs.output_attention), 
+                                            output_attention=configs.output_attention,
+                                            pooling=self.pooling), 
                         configs.d_model, configs.n_heads),
                     configs.d_model,
                     configs.d_ff,

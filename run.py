@@ -5,6 +5,20 @@ from experiments.exp_long_term_forecasting_partial import Exp_Long_Term_Forecast
 from experiments.exp_ttt import Exp_TTT
 import random
 import numpy as np
+import sys
+import os
+
+class Logger(object):
+    def __init__(self, filename='default.log', stream=sys.stdout):
+        self.terminal = stream
+        self.log = open(filename, 'a')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
 
 if __name__ == '__main__':
     fix_seed = 2023
@@ -95,6 +109,9 @@ if __name__ == '__main__':
 
     # VG-iT
     parser.add_argument('--num_groups', type=int, default=8, help='number of groups for VG-iT')
+    parser.add_argument('--pooling', type=str, default='statistical', choices=['mean', 'statistical', 'learnable'], 
+                        help='pooling strategy for hierarchical attention')
+    parser.add_argument('--use_learnable_grouping', action='store_true', help='whether to use learnable grouping layer')
 
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
@@ -139,6 +156,15 @@ if __name__ == '__main__':
                 args.des,
                 args.class_strategy, ii)
 
+            # Create folder for results/logs
+            log_folder = './results/' + setting + '/'
+            if not os.path.exists(log_folder):
+                os.makedirs(log_folder)
+            
+            # Redirect stdout and stderr to the log file
+            sys.stdout = Logger(os.path.join(log_folder, 'log.txt'), sys.stdout)
+            sys.stderr = Logger(os.path.join(log_folder, 'log.txt'), sys.stderr)
+
             exp = Exp(args)  # set experiments
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
             exp.train(setting)
@@ -149,6 +175,10 @@ if __name__ == '__main__':
             if args.do_predict:
                 print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
                 exp.predict(setting, True)
+
+            # Reset stdout and stderr
+            sys.stdout = sys.stdout.terminal
+            sys.stderr = sys.stderr.terminal
 
             torch.cuda.empty_cache()
     else:

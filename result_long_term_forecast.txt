@@ -37,3 +37,51 @@ mse:0.4731478989124298, mae:0.33584317564964294, flops:5.5495G, params:6.4119M, 
 traffic_paper_vgit_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
 mse:0.5434162616729736, mae:0.3853934109210968, flops:5.5495G, params:6.4119M, train_vram:1.7676GB, test_vram:1.7676GB, infer_latency:0.0138s
 
+smoke_baseline_iTransformer_ETTh1_M_ft96_sl48_ll96_pl64_dm8_nh1_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4702446460723877, mae:0.45781409740448, flops:0.0005G, params:0.0460M, train_vram:0.0254GB, test_vram:0.0254GB, infer_latency:0.0096s
+
+smoke_vgit_statistical_VG_iTransformer_ETTh1_M_ft96_sl48_ll96_pl64_dm8_nh1_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.47713029384613037, mae:0.4618763029575348, flops:0.0005G, params:0.0460M, train_vram:0.0254GB, test_vram:0.0254GB, infer_latency:0.0100s
+
+smoke_baseline_iTransformer_ETTh1_M_ft96_sl48_ll96_pl64_dm8_nh1_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4702446460723877, mae:0.45781409740448, flops:0.0005G, params:0.0460M, train_vram:0.0254GB, test_vram:0.0254GB, infer_latency:0.0094s
+
+smoke_vgit_statistical_VG_iTransformer_ETTh1_M_ft96_sl48_ll96_pl64_dm8_nh1_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.47713029384613037, mae:0.4618763029575348, flops:0.0005G, params:0.0460M, train_vram:0.0254GB, test_vram:0.0254GB, infer_latency:0.0104s
+
+smoke_vgit_learnable_VG_iTransformer_ETTh1_M_ft96_sl48_ll96_pl64_dm8_nh1_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.479410320520401, mae:0.46374770998954773, flops:0.0005G, params:0.0460M, train_vram:0.0254GB, test_vram:0.0254GB, infer_latency:0.0103s
+
+traffic_pareto_baseline_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4810238182544708, mae:0.3373493552207947, flops:5.5495G, params:6.4119M, train_vram:5.3750GB, test_vram:5.3750GB, infer_latency:0.0127s
+
+traffic_pareto_vgit_g32_mean_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.49259263277053833, mae:0.3474007844924927, flops:5.5495G, params:6.4119M, train_vram:1.7676GB, test_vram:1.7676GB, infer_latency:0.0141s
+
+traffic_pareto_vgit_g32_stat_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.5082212090492249, mae:0.3622738718986511, flops:5.5495G, params:6.4119M, train_vram:1.8887GB, test_vram:1.8887GB, infer_latency:0.0142s
+
+traffic_pareto_vgit_g32_learn_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4934861958026886, mae:0.34878936409950256, flops:5.5495G, params:6.4119M, train_vram:1.9883GB, test_vram:1.9883GB, infer_latency:0.0148s
+
+traffic_pareto_vgit_g64_learn_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.49440914392471313, mae:0.35030993819236755, flops:5.5495G, params:6.4119M, train_vram:1.9492GB, test_vram:1.9492GB, infer_latency:0.0149s
+
+traffic_cap_128_base_iTransformer_custom_M_ft96_sl48_ll96_pl128_dm8_nh4_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.6083183884620667, mae:0.4069511592388153, flops:0.3658G, params:0.4234M, train_vram:4.4238GB, test_vram:4.4238GB, infer_latency:0.0125s
+
+traffic_cap_128_vgit_g32_VG_iTransformer_custom_M_ft96_sl48_ll96_pl128_dm8_nh4_el1_dl128_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.6115525960922241, mae:0.41605719923973083, flops:0.3658G, params:0.4234M, train_vram:0.6113GB, test_vram:0.6113GB, infer_latency:0.0139s
+
+traffic_cap_512_base_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4810238182544708, mae:0.3373493552207947, flops:5.5495G, params:6.4119M, train_vram:5.3750GB, test_vram:5.3750GB, infer_latency:0.0123s
+
+traffic_cap_512_vgit_g32_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.49259263277053833, mae:0.3474007844924927, flops:5.5495G, params:6.4119M, train_vram:1.7676GB, test_vram:1.7676GB, infer_latency:0.0143s
+
+traffic_mid_g128_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4974212050437927, mae:0.3505847454071045, flops:5.5495G, params:6.4119M, train_vram:1.7969GB, test_vram:1.7969GB, infer_latency:0.0139s
+
+traffic_mid_g256_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.5023322701454163, mae:0.35336869955062866, flops:5.5495G, params:6.4119M, train_vram:2.1523GB, test_vram:2.1523GB, infer_latency:0.0141s
+

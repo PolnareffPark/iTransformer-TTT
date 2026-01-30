@@ -9,17 +9,25 @@ class HierarchicalAttention(nn.Module):
     Logic: Local Direct Interaction + Global Bridge
     Complexity: O(N^2/G + G^2)
     """
-    def __init__(self, n_vars, num_groups, d_model, attention_dropout=0.1, output_attention=False):
+    def __init__(self, n_vars, num_groups, d_model, n_heads=8, attention_dropout=0.1, output_attention=False, 
+                 pooling='statistical'):
         super(HierarchicalAttention, self).__init__()
         self.num_groups = num_groups
         self.output_attention = output_attention
+        self.pooling = pooling
         self.dropout = nn.Dropout(attention_dropout)
         
-        # Local Attention (Intra-group) - Shared across groups to save parameters
+        # Local Attention (Intra-group)
         self.local_attn = MultiHeadAttention(attention_dropout)
         
-        # Global Attention (Inter-group) - Between group representatives
+        # Global Attention (Inter-group) 
         self.global_attn = MultiHeadAttention(attention_dropout)
+        
+        # Learnable Pooling (optional)
+        if pooling == 'learnable':
+            # Initialize query per head
+            D = d_model // n_heads
+            self.query_gen = nn.Parameter(torch.randn(1, 1, 1, D)) 
         
         # Integration layers
         self.norm1 = nn.LayerNorm(d_model)
@@ -55,12 +63,40 @@ class HierarchicalAttention(nn.Module):
         out_local = out_local.view(G, B, M, H, D).transpose(0, 1)
         
         # --- [Step 2: Global Attention (Inter-group)] ---
-        # Pool local features to get group representatives: (B, G, H, D)
-        # Using mean pooling for simplicity and robustness
-        group_reps = out_local.mean(dim=2) # (B, G, H, D)
-        
-        # Global interaction among G groups: O(G^2)
-        out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps) # (B, G, H, D)
+        if self.pooling == 'statistical':
+            # Statistical Pooling: Capture more information than just mean
+            # (B, G, H, D)
+            rep_mean = out_local.mean(dim=2) 
+            rep_max = out_local.max(dim=2)[0]
+            rep_std = out_local.std(dim=2)
+            
+            # Multi-Token Bridge: Attend to all statistical aspects
+            # Shape: (B, 3*G, H, D)
+            group_reps = torch.cat([rep_mean, rep_max, rep_std], dim=1)
+            
+            # Global interaction among 3*G tokens: O((3G)^2)
+            out_global_combined, attn_global = self.global_attn(group_reps, group_reps, group_reps) 
+            
+            # Split global context back into 3 parts and aggregate (sum)
+            g_mean, g_max, g_std = torch.chunk(out_global_combined, 3, dim=1)
+            out_global = g_mean + g_max + g_std
+            
+        elif self.pooling == 'learnable':
+            # Learnable Pooling: Using a learnable query to extract features per group
+            # query_gen: (1, 1, 1, D) -> (B*G, 1, H, D)
+            # q_pool = self.query_gen.expand(B*G, -1, H, -1)
+            # But simpler: Use the weighted average of variates as representives
+            # For now, let's implement a simple attention-based pooling
+            q_pool = self.query_gen.expand(G * B, 1, H, D)
+            # Attend to local variates: (G*B, 1, H, D)
+            rep_learnable, _ = self.local_attn(q_pool, q_local, v_local)
+            group_reps = rep_learnable.view(G, B, 1, H, D).transpose(0, 1).reshape(B, G, H, D)
+            
+            out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
+            
+        else: # 'mean' (Baseline)
+            group_reps = out_local.mean(dim=2)
+            out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
         
         # --- [Step 3: Integration] ---
         # Broadcast global context back to all variates in the group
