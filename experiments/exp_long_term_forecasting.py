@@ -204,10 +204,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         self.model.eval()
         
-        # 0. Static Profiling (FLOPs, Params) - Run once separately to avoid impact on latency
-        total_flops = 0
-        total_params = 0
+    def profile_model(self):
+        """Separate profiling run to avoid impact on main experiment timing"""
         if profile is not None:
+            self.model.eval()
             try:
                 # Use a dummy input for profiling
                 dummy_x = torch.randn(1, self.args.seq_len, self.args.enc_in).to(self.device)
@@ -215,11 +215,23 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 dummy_dec = torch.randn(1, self.args.label_len + self.args.pred_len, self.args.dec_in).to(self.device)
                 dummy_y_mark = torch.randn(1, self.args.label_len + self.args.pred_len, 4).to(self.device) if not ('PEMS' in self.args.data or 'Solar' in self.args.data) else None
                 
-                total_flops, total_params = profile(self.model, inputs=(dummy_x, dummy_mark, dummy_dec, dummy_y_mark), verbose=False)
+                flops, params = profile(self.model, inputs=(dummy_x, dummy_mark, dummy_dec, dummy_y_mark), verbose=False)
+                return flops, params
             except Exception as e:
                 print(f"Error profiling model: {e}")
+        return 0, 0
 
-        # 1. Warm-up (Academic standard: 5-10 iterations to eliminate cold-start overhead)
+    def test(self, setting, test=0):
+        test_data, test_loader = self._get_data(flag='test')
+        if test:
+            print('loading model')
+            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+
+        self.model.eval()
+        
+        # 1. Metric-Only Run (isolated)
+        print("Running independent metric profiling...")
+        total_flops, total_params = self.profile_model()
         print("Warming up...")
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
@@ -298,6 +310,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         inference_peak_vram = torch.cuda.max_memory_reserved(self.device) / 1024 / 1024 / 1024 # GB
         inference_time_total = time.time() - start_time
         inference_latency = inference_time_total / len(test_loader) # s/iter
+        inference_speed = (len(test_loader) * self.args.batch_size) / inference_time_total # items/sec
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -319,14 +332,16 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         
         print('FLOPs: {:.2f}G, Params: {:.2f}M'.format(total_flops / 1e9, total_params / 1e6))
         print('Training: Peak VRAM {:.2f}GB, Speed {:.4f}s/epoch'.format(train_vram, train_speed))
-        print('Inference: Peak VRAM {:.2f}GB, Latency {:.4f}s/iter'.format(inference_peak_vram, inference_latency))
+        print('Inference: Peak VRAM {:.2f}GB, Latency {:.4f}s/iter, Speed {:.2f} items/sec'.format(inference_peak_vram, inference_latency, inference_speed))
         
-        f = open("result_long_term_forecast.txt", 'a')
-        f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}, flops:{:.4f}G, params:{:.4f}M, train_vram:{:.4f}GB, test_vram:{:.4f}GB, infer_latency:{:.4f}s\n'.format(
-            mse, mae, total_flops/1e9, total_params/1e6, train_vram, inference_peak_vram, inference_latency))
-        f.write('\n')
-        f.close()
+        with open("result_long_term_forecast.txt", 'a') as f:
+            f.write(setting + "  \n")
+            f.write('mse:{}, mae:{}, flops:{:.4f}G, params:{:.4f}M, train_vram:{:.4f}GB, train_time:{:.4f}s, test_vram:{:.4f}GB, infer_latency:{:.4f}s, infer_speed:{:.2f}items/s\n'.format(
+                mse, mae, total_flops/1e9, total_params/1e6, train_vram, train_speed, inference_peak_vram, inference_latency, inference_speed))
+            f.write('\n')
+            f.flush()
+            os.fsync(f.fileno())
+        print("Logged to result_long_term_forecast.txt")
 
         # New CSV logging
         summary_path = './test_results/summary.csv'
@@ -335,8 +350,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             
         file_exists = os.path.isfile(summary_path)
         with open(summary_path, 'a', newline='') as csvfile:
-            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'flops_G', 'params_M', 'train_vram_GB', 'test_vram_GB', 
-                       'infer_latency_s', 'num_groups', 'pooling', 'dynamic_VR', 'dynamic_Bridge', 'setting']
+            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'flops_G', 'params_M', 'train_vram_GB', 'train_time_s', 'test_vram_GB', 
+                       'infer_latency_s', 'infer_speed_items_s', 'num_groups', 'pooling', 'dynamic_VR', 'dynamic_Bridge', 'dynamic_tokens', 'setting']
             writer = csv.DictWriter(csvfile, fieldnames=headers)
             if not file_exists:
                 writer.writeheader()
@@ -351,14 +366,20 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 'flops_G': f"{total_flops / 1e9:.4f}",
                 'params_M': f"{total_params / 1e6:.4f}",
                 'train_vram_GB': f"{train_vram:.4f}",
+                'train_time_s': f"{train_speed:.4f}",
                 'test_vram_GB': f"{inference_peak_vram:.4f}",
                 'infer_latency_s': f"{inference_latency:.4f}",
+                'infer_speed_items_s': f"{inference_speed:.2f}",
                 'num_groups': getattr(self.args, 'num_groups', 0),
                 'pooling': getattr(self.args, 'pooling', 'none'),
                 'dynamic_VR': getattr(self.args, 'use_variable_resolution', 0),
                 'dynamic_Bridge': getattr(self.args, 'use_interaction_bridge', 0),
+                'dynamic_tokens': getattr(self.args, 'dynamic_tokens_per_group', 1),
                 'setting': setting
             })
+            csvfile.flush()
+            os.fsync(csvfile.fileno())
+        print("Logged to summary.csv")
 
         np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe, total_flops, total_params, inference_peak_vram]))
         np.save(folder_path + 'pred.npy', preds)

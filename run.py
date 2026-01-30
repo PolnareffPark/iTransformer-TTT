@@ -16,20 +16,19 @@ class Logger(object):
     def write(self, message):
         self.terminal.write(message)
         self.log.write(message)
+        self.log.flush()
 
     def flush(self):
-        pass
+        self.terminal.flush()
+        self.log.flush()
+        os.fsync(self.log.fileno())
 
 if __name__ == '__main__':
-    fix_seed = 2023
-    random.seed(fix_seed)
-    torch.manual_seed(fix_seed)
-    np.random.seed(fix_seed)
-
     parser = argparse.ArgumentParser(description='iTransformer')
 
     # basic config
     parser.add_argument('--is_training', type=int, required=True, default=1, help='status')
+    parser.add_argument('--seed', type=int, default=2023, help='random seed')
     parser.add_argument('--model_id', type=str, required=True, default='test', help='model id')
     parser.add_argument('--model', type=str, required=True, default='iTransformer',
                         help='model name, options: [iTransformer, iInformer, iReformer, iFlowformer, iFlashformer]')
@@ -116,8 +115,19 @@ if __name__ == '__main__':
     # Phase 17 Ablation Flags
     parser.add_argument('--use_variable_resolution', type=int, default=1, help='whether to use Variable Resolution (Salience Gate)')
     parser.add_argument('--use_interaction_bridge', type=int, default=1, help='whether to use Cross-Interaction Bridge (Gated Integration)')
+    parser.add_argument('--partition_strategy', type=str, default='softmax', choices=['softmax', 'gumbel', 'topk'],
+                        help='partitioning strategy for dynamic grouping')
+    parser.add_argument('--dynamic_tokens_per_group', type=int, default=1, help='number of tokens per group in dynamic pooling')
 
     args = parser.parse_args()
+    
+    # Set seed
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
     if args.use_gpu and args.use_multi_gpu:

@@ -10,7 +10,8 @@ class HierarchicalAttention(nn.Module):
     Complexity: O(N^2/G + G^2)
     """
     def __init__(self, n_vars, num_groups, d_model, n_heads=8, attention_dropout=0.1, output_attention=False, 
-                 pooling='statistical', use_variable_resolution=True, use_interaction_bridge=True):
+                 pooling='statistical', use_variable_resolution=True, use_interaction_bridge=True,
+                 partition_strategy='softmax', dynamic_tokens_per_group=1):
         super(HierarchicalAttention, self).__init__()
         self.num_groups = num_groups
         self.d_model = d_model
@@ -18,6 +19,8 @@ class HierarchicalAttention(nn.Module):
         self.pooling = pooling
         self.use_variable_resolution = use_variable_resolution
         self.use_interaction_bridge = use_interaction_bridge
+        self.partition_strategy = partition_strategy
+        self.dynamic_tokens_per_group = dynamic_tokens_per_group
         self.dropout = nn.Dropout(attention_dropout)
         
         # Local Attention (Intra-group) - Used for fixed grouping or refinement
@@ -29,8 +32,8 @@ class HierarchicalAttention(nn.Module):
         # Dynamic Grouping (Phase 17)
         if pooling == 'dynamic':
             # 1. Dynamic Partitioning: Learnable mapping
-            self.score_projection = nn.Linear(d_model, num_groups)
-            self.temp = nn.Parameter(torch.ones(1)) # Temperature for softmax
+            self.score_projection = nn.Linear(d_model, num_groups * dynamic_tokens_per_group)
+            self.temp = nn.Parameter(torch.ones(1) * 0.1) 
             
             # 2. Variable Resolution: Salience Gate
             if use_variable_resolution:
@@ -50,39 +53,64 @@ class HierarchicalAttention(nn.Module):
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         
+    def _partition(self, logits):
+        """Helper for different partitioning strategies"""
+        temp = torch.abs(self.temp) + 1e-4
+        
+        if self.partition_strategy == 'gumbel':
+            # Gumbel-Softmax for hard categorical assignment with gradients
+            return F.gumbel_softmax(logits, tau=temp, hard=True, dim=-1)
+        
+        elif self.partition_strategy == 'topk':
+            # Keep only top-k groups, zero out others (sharp sparsity)
+            k = max(1, self.num_groups // 4) # Heuristic: keep 25%
+            values, indices = torch.topk(logits, k, dim=-1)
+            mask = torch.zeros_like(logits).scatter_(-1, indices, 1.0)
+            weights = torch.softmax(logits / temp, dim=-1)
+            return weights * mask / (weights * mask).sum(dim=-1, keepdim=True)
+            
+        else: # 'softmax' (standard)
+            return torch.softmax(logits / temp, dim=-1)
+
     def forward(self, queries, keys, values, attn_mask, tau=None, delta=None):
         """
         queries/keys/values: (B, N, H, D)
         """
         B, N, H, D = queries.shape
         G = self.num_groups
+        K = self.dynamic_tokens_per_group
         
         if self.pooling == 'dynamic':
-            # --- [Phase 17: Advanced Dynamic Grouping Flow] ---
-            # x_raw: (B, N, d_model)
+            # --- [Phase 17+: Multi-Token Dynamic Grouping] ---
             x_raw = queries.reshape(B, N, H * D)
             v_raw = values.reshape(B, N, H * D)
             
-            # 1. Variable Resolution (Salience Gate) -> O(N)
+            # 1. Salience Gate
             if self.use_variable_resolution:
-                salience = torch.sigmoid(self.salience_gate(x_raw)) # (B, N, 1)
+                salience = torch.sigmoid(self.salience_gate(x_raw))
             else:
                 salience = torch.zeros((B, N, 1), device=x_raw.device)
             
-            # 2. Dynamic Partitioning (Temperature Softmax) -> O(NG)
+            # 2. Dynamic Partitioning with Multi-Token support
+            # logits: (B, N, G*K)
             logits = self.score_projection(x_raw)
-            weights = torch.softmax(logits / (torch.abs(self.temp) + 1e-4), dim=-1) 
+            weights = self._partition(logits) # (B, N, G*K)
             
-            # 3. Dynamic Aggregation
+            # 3. Dynamic Aggregation (Global Nodes: G*K)
+            # group_reps: (B, G*K, d_model)
             group_reps_raw = torch.matmul(weights.transpose(-1, -2), v_raw)
-            group_reps = group_reps_raw.reshape(B, G, H, D)
+            # Normalize by weight sum (Stability)
+            weight_sum = weights.sum(dim=1, keepdim=True).transpose(-1, -2) + 1e-4
+            group_reps_raw = group_reps_raw / weight_sum
             
-            # 4. Global interaction (Inter-group) -> O(G^2)
+            group_reps = group_reps_raw.reshape(B, G * K, H, D)
+            
+            # 4. Global Attention: Inter-Token Interaction -> O((G*K)^2)
             out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
-            out_global_raw = out_global.reshape(B, G, H * D)
+            out_global_raw = out_global.reshape(B, G * K, H * D)
             
-            # 5. Dynamic Reconstruction (Re-broadcasting) -> O(NG)
-            out_context = torch.matmul(weights, out_global_raw) # (B, N, d_model)
+            # 5. Dynamic Reconstruction -> O(N * GK)
+            out_context = torch.matmul(weights, out_global_raw)
             
             # 6. Cross-Interaction Bridge (Gated Integration) -> O(N)
             if self.use_interaction_bridge:
