@@ -12,6 +12,11 @@ import numpy as np
 import csv
 import datetime
 
+try:
+    from thop import profile
+except ImportError:
+    profile = None
+
 warnings.filterwarnings('ignore')
 
 
@@ -98,6 +103,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
 
+        time_now_overall = time.time()
+        torch.cuda.reset_peak_memory_stats(self.device)
+
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
 
@@ -178,7 +186,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
-            # get_cka(self.args, setting, self.model, train_loader, self.device, epoch)
+        # After all epochs, capture peak reserved memory (including grads, optimizer states)
+        self.train_peak_vram = torch.cuda.max_memory_reserved(self.device) / 1024 / 1024 / 1024  # GB
+        self.total_train_time = time.time() - time_now_overall
+        print("Final Training Peak VRAM: {:.2f}GB".format(self.train_peak_vram))
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
@@ -191,19 +202,51 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             print('loading model')
             self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
+        self.model.eval()
+        
+        # 0. Static Profiling (FLOPs, Params) - Run once separately to avoid impact on latency
+        total_flops = 0
+        total_params = 0
+        if profile is not None:
+            try:
+                # Use a dummy input for profiling
+                dummy_x = torch.randn(1, self.args.seq_len, self.args.enc_in).to(self.device)
+                dummy_mark = torch.randn(1, self.args.seq_len, 4).to(self.device) if not ('PEMS' in self.args.data or 'Solar' in self.args.data) else None
+                dummy_dec = torch.randn(1, self.args.label_len + self.args.pred_len, self.args.dec_in).to(self.device)
+                dummy_y_mark = torch.randn(1, self.args.label_len + self.args.pred_len, 4).to(self.device) if not ('PEMS' in self.args.data or 'Solar' in self.args.data) else None
+                
+                total_flops, total_params = profile(self.model, inputs=(dummy_x, dummy_mark, dummy_dec, dummy_y_mark), verbose=False)
+            except Exception as e:
+                print(f"Error profiling model: {e}")
+
+        # 1. Warm-up (Academic standard: 5-10 iterations to eliminate cold-start overhead)
+        print("Warming up...")
+        with torch.no_grad():
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+                if i >= 5: break
+                batch_x = batch_x.float().to(self.device)
+                batch_y = batch_y.float().to(self.device)
+                dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
+                dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
+                self.model(batch_x, None, dec_inp, None)
+        
+        # 2. Main Latency & VRAM Tracking
+        torch.cuda.synchronize(self.device) # Barrier
+        torch.cuda.reset_peak_memory_stats(self.device)
+        start_time = time.time()
+        
         preds = []
         trues = []
         folder_path = './test_results/' + setting + '/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
-                if 'PEMS' in self.args.data or 'Solar' in self.args.data:
+                if 'PEMS' in self.args.data or 'Solar' in self.args.data or 'stress' in self.args.data:
                     batch_x_mark = None
                     batch_y_mark = None
                 else:
@@ -223,9 +266,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 else:
                     if self.args.output_attention:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
-
                     else:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -250,6 +293,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
                     pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
                     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+            
+        # Get peak VRAM usage for inference
+        inference_peak_vram = torch.cuda.max_memory_reserved(self.device) / 1024 / 1024 / 1024 # GB
+        inference_time_total = time.time() - start_time
+        inference_latency = inference_time_total / len(test_loader) # s/iter
 
         preds = np.array(preds)
         trues = np.array(trues)
@@ -265,10 +313,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
         mae, mse, rmse, mape, mspe = metric(preds, trues)
         print('mse:{}, mae:{}'.format(mse, mae))
+        # Log BOTH training and inference metrics for transparency
+        train_vram = getattr(self, 'train_peak_vram', 0)
+        train_speed = getattr(self, 'total_train_time', 0) / self.args.train_epochs
+        
+        print('FLOPs: {:.2f}G, Params: {:.2f}M'.format(total_flops / 1e9, total_params / 1e6))
+        print('Training: Peak VRAM {:.2f}GB, Speed {:.4f}s/epoch'.format(train_vram, train_speed))
+        print('Inference: Peak VRAM {:.2f}GB, Latency {:.4f}s/iter'.format(inference_peak_vram, inference_latency))
+        
         f = open("result_long_term_forecast.txt", 'a')
         f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}'.format(mse, mae))
-        f.write('\n')
+        f.write('mse:{}, mae:{}, flops:{:.4f}G, params:{:.4f}M, train_vram:{:.4f}GB, test_vram:{:.4f}GB, infer_latency:{:.4f}s\n'.format(
+            mse, mae, total_flops/1e9, total_params/1e6, train_vram, inference_peak_vram, inference_latency))
         f.write('\n')
         f.close()
 
@@ -279,7 +335,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             
         file_exists = os.path.isfile(summary_path)
         with open(summary_path, 'a', newline='') as csvfile:
-            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'setting']
+            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'flops_G', 'params_M', 'train_vram_GB', 'test_vram_GB', 'infer_latency_s', 'setting']
             writer = csv.DictWriter(csvfile, fieldnames=headers)
             if not file_exists:
                 writer.writeheader()
@@ -291,10 +347,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 'data': self.args.data,
                 'mse': mse,
                 'mae': mae,
+                'flops_G': f"{total_flops / 1e9:.4f}",
+                'params_M': f"{total_params / 1e6:.4f}",
+                'train_vram_GB': f"{train_vram:.4f}",
+                'test_vram_GB': f"{inference_peak_vram:.4f}",
+                'infer_latency_s': f"{inference_latency:.4f}",
                 'setting': setting
             })
 
-        np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe]))
+        np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe, total_flops, total_params, inference_peak_vram]))
         np.save(folder_path + 'pred.npy', preds)
         np.save(folder_path + 'true.npy', trues)
 

@@ -533,3 +533,47 @@ class Dataset_Pred(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+class Dataset_StressTest(Dataset):
+    def __init__(self, root_path, flag='train', size=None,
+                 features='M', data_path='stress.csv',
+                 target='OT', scale=True, timeenc=0, freq='h'):
+        # size [seq_len, label_len, pred_len]
+        self.seq_len = size[0]
+        self.label_len = size[1]
+        self.pred_len = size[2]
+        self.scale = scale
+        
+        # Determine N from data_path filename (e.g., stress_2000.csv -> N=2000)
+        try:
+            self.n_vars = int(data_path.split('_')[1].split('.')[0])
+        except:
+            self.n_vars = 1000 # Default
+            
+        print(f"Initializing Stress Test Dataset with N={self.n_vars}")
+        
+        # Generate dummy data: 10000 samples to avoid shortage
+        self.data_x = np.random.randn(10000, self.n_vars).astype(np.float32)
+        self.data_y = self.data_x.copy()
+        
+        # Dummy time mark
+        self.data_stamp = np.zeros((10000, 4)) # month, day, weekday, hour
+
+    def __getitem__(self, index):
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
+
+        seq_x = self.data_x[s_begin:s_end]
+        seq_y = self.data_y[r_begin:r_end]
+        seq_x_mark = self.data_stamp[s_begin:s_end]
+        seq_y_mark = self.data_stamp[r_begin:r_end]
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def __len__(self):
+        return len(self.data_x) - self.seq_len - self.pred_len + 1
+
+    def inverse_transform(self, data):
+        return data
