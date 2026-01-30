@@ -37,11 +37,13 @@ class Model(nn.Module):
             [
                 EncoderLayer(
                     AttentionLayer(
-                        HierarchicalAttention(configs.enc_in, self.num_groups, configs.d_model,
+                         HierarchicalAttention(configs.enc_in, self.num_groups, configs.d_model,
                                             n_heads=configs.n_heads,
                                             attention_dropout=configs.dropout,
                                             output_attention=configs.output_attention,
-                                            pooling=self.pooling), 
+                                            pooling=self.pooling,
+                                            use_variable_resolution=getattr(configs, 'use_variable_resolution', True),
+                                            use_interaction_bridge=getattr(configs, 'use_interaction_bridge', True)), 
                         configs.d_model, configs.n_heads),
                     configs.d_model,
                     configs.d_ff,

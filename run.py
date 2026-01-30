@@ -109,9 +109,13 @@ if __name__ == '__main__':
 
     # VG-iT
     parser.add_argument('--num_groups', type=int, default=8, help='number of groups for VG-iT')
-    parser.add_argument('--pooling', type=str, default='statistical', choices=['mean', 'statistical', 'learnable'], 
+    parser.add_argument('--pooling', type=str, default='statistical', choices=['mean', 'statistical', 'learnable', 'dynamic'], 
                         help='pooling strategy for hierarchical attention')
     parser.add_argument('--use_learnable_grouping', action='store_true', help='whether to use learnable grouping layer')
+    
+    # Phase 17 Ablation Flags
+    parser.add_argument('--use_variable_resolution', type=int, default=1, help='whether to use Variable Resolution (Salience Gate)')
+    parser.add_argument('--use_interaction_bridge', type=int, default=1, help='whether to use Cross-Interaction Bridge (Gated Integration)')
 
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
@@ -166,7 +170,16 @@ if __name__ == '__main__':
             sys.stderr = Logger(os.path.join(log_folder, 'log.txt'), sys.stderr)
 
             exp = Exp(args)  # set experiments
+            
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+            print('--- VG-iT Configurations ---')
+            print('Pooling: {}'.format(args.pooling))
+            print('Num Groups: {}'.format(args.num_groups))
+            if args.pooling == 'dynamic':
+                print('Variable Resolution: {}'.format(bool(args.use_variable_resolution)))
+                print('Interaction Bridge: {}'.format(bool(args.use_interaction_bridge)))
+            print('----------------------------')
+            
             exp.train(setting)
 
             print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))

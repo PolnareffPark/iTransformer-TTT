@@ -335,7 +335,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             
         file_exists = os.path.isfile(summary_path)
         with open(summary_path, 'a', newline='') as csvfile:
-            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'flops_G', 'params_M', 'train_vram_GB', 'test_vram_GB', 'infer_latency_s', 'num_groups', 'pooling', 'setting']
+            headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'flops_G', 'params_M', 'train_vram_GB', 'test_vram_GB', 
+                       'infer_latency_s', 'num_groups', 'pooling', 'dynamic_VR', 'dynamic_Bridge', 'setting']
             writer = csv.DictWriter(csvfile, fieldnames=headers)
             if not file_exists:
                 writer.writeheader()
@@ -354,6 +355,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 'infer_latency_s': f"{inference_latency:.4f}",
                 'num_groups': getattr(self.args, 'num_groups', 0),
                 'pooling': getattr(self.args, 'pooling', 'none'),
+                'dynamic_VR': getattr(self.args, 'use_variable_resolution', 0),
+                'dynamic_Bridge': getattr(self.args, 'use_interaction_bridge', 0),
                 'setting': setting
             })
 

@@ -85,3 +85,24 @@ mse:0.4974212050437927, mae:0.3505847454071045, flops:5.5495G, params:6.4119M, t
 traffic_mid_g256_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
 mse:0.5023322701454163, mae:0.35336869955062866, flops:5.5495G, params:6.4119M, train_vram:2.1523GB, test_vram:2.1523GB, infer_latency:0.0141s
 
+traffic_fixed_g32_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.49259263277053833, mae:0.3474007844924927, flops:5.5495G, params:6.4119M, train_vram:1.7676GB, test_vram:1.7676GB, infer_latency:0.0141s
+
+traffic_fixed_g128_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4974212050437927, mae:0.3505847454071045, flops:5.5495G, params:6.4119M, train_vram:1.7969GB, test_vram:1.7969GB, infer_latency:0.0197s
+
+traffic_fixed_g32_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.49259263277053833, mae:0.3474007844924927, flops:5.5495G, params:6.4119M, train_vram:1.7676GB, test_vram:1.7676GB, infer_latency:0.0179s
+
+traffic_dynamic_g128_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4883805513381958, mae:0.34245115518569946, flops:8.5025G, params:9.8264M, train_vram:2.4648GB, test_vram:2.4688GB, infer_latency:0.0191s
+
+traffic_dynamic_g32_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.8412519097328186, mae:0.5111608505249023, flops:8.3322G, params:9.6294M, train_vram:2.2715GB, test_vram:2.2754GB, infer_latency:0.0160s
+
+traffic_fixed_g128_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4974212050437927, mae:0.3505847454071045, flops:5.5495G, params:6.4119M, train_vram:1.7969GB, test_vram:1.7969GB, infer_latency:0.0137s
+
+traffic_dynamic_g128_VG_iTransformer_custom_M_ft96_sl48_ll96_pl512_dm8_nh4_el1_dl512_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4883805513381958, mae:0.34245115518569946, flops:8.5025G, params:9.8264M, train_vram:2.4648GB, test_vram:2.4688GB, infer_latency:0.0143s
+
