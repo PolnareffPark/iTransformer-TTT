@@ -5,6 +5,9 @@
 #   Run in background:
 #     nohup bash scripts/full_benchmark_vgit.sh > full_benchmark.log 2>&1 &
 #
+#   Check log:
+#     tail -f full_benchmark.log
+#
 # [Termination]
 #   Stop all benchmark processes:
 #     pkill -f full_benchmark_vgit.sh
