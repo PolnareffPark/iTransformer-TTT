@@ -11,7 +11,7 @@ class HierarchicalAttention(nn.Module):
     """
     def __init__(self, n_vars, num_groups, d_model, n_heads=8, attention_dropout=0.1, output_attention=False, 
                  pooling='statistical', use_variable_resolution=True, use_interaction_bridge=True,
-                 partition_strategy='softmax', dynamic_tokens_per_group=1):
+                 use_global_interact=True, partition_strategy='softmax', dynamic_tokens_per_group=1):
         super(HierarchicalAttention, self).__init__()
         self.num_groups = num_groups
         self.d_model = d_model
@@ -19,6 +19,7 @@ class HierarchicalAttention(nn.Module):
         self.pooling = pooling
         self.use_variable_resolution = use_variable_resolution
         self.use_interaction_bridge = use_interaction_bridge
+        self.use_global_interact = use_global_interact
         self.partition_strategy = partition_strategy
         self.dynamic_tokens_per_group = dynamic_tokens_per_group
         self.dropout = nn.Dropout(attention_dropout)
@@ -105,14 +106,16 @@ class HierarchicalAttention(nn.Module):
             
             group_reps = group_reps_raw.reshape(B, G * K, H, D)
             
-            # 4. Global Attention: Inter-Token Interaction -> O((G*K)^2)
-            out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
-            out_global_raw = out_global.reshape(B, G * K, H * D)
-            
-            # 5. Dynamic Reconstruction -> O(N * GK)
-            out_context = torch.matmul(weights, out_global_raw)
-            
-            # 6. Cross-Interaction Bridge (Gated Integration) -> O(N)
+            # 4. Global Attention: Inter-Token Interaction
+            if self.use_global_interact:
+                out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
+                out_global_raw = out_global.reshape(B, G * K, H * D)
+                out_context = torch.matmul(weights, out_global_raw)
+            else:
+                # Skip global interaction, contextual bias is zero
+                out_context = torch.zeros((B, N, H * D), device=x_raw.device)
+
+            # 6. Cross-Interaction Bridge (Gated Integration)
             if self.use_interaction_bridge:
                 combined = torch.cat([out_context, v_raw], dim=-1)
                 interaction = torch.sigmoid(self.interaction_gate(combined))
@@ -125,7 +128,10 @@ class HierarchicalAttention(nn.Module):
             out = self.refinement(out_raw).reshape(B, N, H, D)
             
             if self.output_attention:
-                return out, attn_global
+                res = {'attn': attn_global, 'salience': salience}
+                if self.use_interaction_bridge:
+                    res['interaction'] = interaction
+                return out, res
             else:
                 return out, None
 
@@ -153,32 +159,37 @@ class HierarchicalAttention(nn.Module):
         out_local = out_local.view(G, B, M, H, D).transpose(0, 1)
         
         # --- [Step 2: Global Attention (Inter-group)] ---
-        if self.pooling == 'statistical':
-            # Statistical Pooling: Capture more information than just mean
-            rep_mean = out_local.mean(dim=2) 
-            rep_max = out_local.max(dim=2)[0]
-            rep_std = out_local.std(dim=2)
+        if self.use_global_interact:
+            if self.pooling == 'statistical':
+                # Statistical Pooling: Capture more information than just mean
+                rep_mean = out_local.mean(dim=2) 
+                rep_max = out_local.max(dim=2)[0]
+                rep_std = out_local.std(dim=2)
+                
+                group_reps = torch.cat([rep_mean, rep_max, rep_std], dim=1)
+                out_global_combined, attn_global = self.global_attn(group_reps, group_reps, group_reps) 
+                
+                g_mean, g_max, g_std = torch.chunk(out_global_combined, 3, dim=1)
+                out_global = g_mean + g_max + g_std
+                
+            elif self.pooling == 'learnable':
+                q_pool = self.query_gen.expand(G * B, 1, H, D)
+                rep_learnable, _ = self.local_attn(q_pool, q_local, v_local)
+                group_reps = rep_learnable.view(G, B, 1, H, D).transpose(0, 1).reshape(B, G, H, D)
+                
+                out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
+                
+            else: # 'mean' (Baseline)
+                group_reps = out_local.mean(dim=2)
+                out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
             
-            group_reps = torch.cat([rep_mean, rep_max, rep_std], dim=1)
-            out_global_combined, attn_global = self.global_attn(group_reps, group_reps, group_reps) 
-            
-            g_mean, g_max, g_std = torch.chunk(out_global_combined, 3, dim=1)
-            out_global = g_mean + g_max + g_std
-            
-        elif self.pooling == 'learnable':
-            q_pool = self.query_gen.expand(G * B, 1, H, D)
-            rep_learnable, _ = self.local_attn(q_pool, q_local, v_local)
-            group_reps = rep_learnable.view(G, B, 1, H, D).transpose(0, 1).reshape(B, G, H, D)
-            
-            out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
-            
-        else: # 'mean' (Baseline)
-            group_reps = out_local.mean(dim=2)
-            out_global, attn_global = self.global_attn(group_reps, group_reps, group_reps)
-        
-        # --- [Step 3: Integration] ---
-        out_global = out_global.unsqueeze(2).expand(-1, -1, M, -1, -1)
-        out = out_local + self.dropout(out_global)
+            # --- [Step 3: Integration] ---
+            out_global = out_global.unsqueeze(2).expand(-1, -1, M, -1, -1)
+            out = out_local + self.dropout(out_global)
+        else:
+            # Skip Step 2 & 3, just use local info
+            out = out_local
+            attn_global = None
         
         out = out.reshape(B, N_padded, H, D)
         if pad_len > 0:

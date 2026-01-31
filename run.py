@@ -110,11 +110,15 @@ if __name__ == '__main__':
     parser.add_argument('--num_groups', type=int, default=8, help='number of groups for VG-iT')
     parser.add_argument('--pooling', type=str, default='statistical', choices=['mean', 'statistical', 'learnable', 'dynamic'], 
                         help='pooling strategy for hierarchical attention')
+    parser.add_argument('--use_global_interact', type=int, default=1, help='whether to use inter-group communication (Ablation 4)')
     parser.add_argument('--use_learnable_grouping', action='store_true', help='whether to use learnable grouping layer')
     
-    # Phase 17 Ablation Flags
-    parser.add_argument('--use_variable_resolution', type=int, default=1, help='whether to use Variable Resolution (Salience Gate)')
-    parser.add_argument('--use_interaction_bridge', type=int, default=1, help='whether to use Cross-Interaction Bridge (Gated Integration)')
+    # Phase 1: Ablation Flags
+    parser.add_argument('--use_shuffling', type=int, default=0, help='shuffle variate order before grouping (Ablation 1)')
+    parser.add_argument('--summary_file', type=str, default='summary.csv', help='summary file name for isolated experiments')
+    parser.add_argument('--noise_std', type=float, default=0.0, help='standard deviation of Gaussian noise to inject into inputs (Ablation 2)')
+    
+    # Phase 17 Ablation Flags (Legacy support)
     parser.add_argument('--partition_strategy', type=str, default='softmax', choices=['softmax', 'gumbel', 'topk'],
                         help='partitioning strategy for dynamic grouping')
     parser.add_argument('--dynamic_tokens_per_group', type=int, default=1, help='number of tokens per group in dynamic pooling')

@@ -21,6 +21,8 @@ class Model(nn.Module):
         self.num_groups = getattr(configs, 'num_groups', 8)
         self.use_learnable_grouping = getattr(configs, 'use_learnable_grouping', False)
         self.pooling = getattr(configs, 'pooling', 'statistical')
+        self.use_shuffling = getattr(configs, 'use_shuffling', 0)
+        self.variate_indices = None # Will be initialized in forecast based on N
 
         # Embedding
         self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
@@ -44,6 +46,7 @@ class Model(nn.Module):
                                             pooling=self.pooling,
                                             use_variable_resolution=getattr(configs, 'use_variable_resolution', True),
                                             use_interaction_bridge=getattr(configs, 'use_interaction_bridge', True),
+                                            use_global_interact=getattr(configs, 'use_global_interact', 1),
                                             partition_strategy=getattr(configs, 'partition_strategy', 'softmax'),
                                             dynamic_tokens_per_group=getattr(configs, 'dynamic_tokens_per_group', 1)), 
                         configs.d_model, configs.n_heads),
@@ -64,16 +67,36 @@ class Model(nn.Module):
             stdev = torch.sqrt(torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
             x_enc /= stdev
 
-        _, _, N = x_enc.shape
+        B, T, N = x_enc.shape
+        
+        # Ablation 1: Shuffling variate order
+        if self.use_shuffling:
+            if self.variate_indices is None or self.variate_indices.shape[0] != N:
+                # Use a fixed seed for shuffling based on the existing seed + a constant
+                g = torch.Generator()
+                g.manual_seed(42) # Fixed seed for the shuffle itself to be consistent across batches
+                self.variate_indices = torch.randperm(N, generator=g).to(x_enc.device)
+                self.inverse_indices = torch.argsort(self.variate_indices)
+            
+            x_enc = x_enc[:, :, self.variate_indices]
+            if self.use_norm:
+                stdev = stdev[:, :, self.variate_indices]
+                means = means[:, :, self.variate_indices]
+
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        dec_out = self.projector(enc_out).permute(0, 2, 1)[:, :, :N]
+        
+        # Project and Restore Order
+        dec_out = self.projector(enc_out).permute(0, 2, 1) # [B, L, N]
+        
+        if self.use_shuffling:
+            dec_out = dec_out[:, :, self.inverse_indices]
 
         if self.use_norm:
             dec_out = dec_out * (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
             dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
 
-        return dec_out, attns
+        return dec_out[:, :, :N], attns
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         dec_out, attns = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)

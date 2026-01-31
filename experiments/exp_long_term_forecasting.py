@@ -50,6 +50,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
+                if getattr(self.args, 'noise_std', 0.0) > 0:
+                    batch_x = batch_x + torch.randn_like(batch_x) * self.args.noise_std
+
                 if 'PEMS' in self.args.data or 'Solar' in self.args.data:
                     batch_x_mark = None
                     batch_y_mark = None
@@ -120,6 +123,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
+                if getattr(self.args, 'noise_std', 0.0) > 0:
+                    batch_x = batch_x + torch.randn_like(batch_x) * self.args.noise_std
+
                 if 'PEMS' in self.args.data or 'Solar' in self.args.data:
                     batch_x_mark = None
                     batch_y_mark = None
@@ -257,6 +263,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
+                if getattr(self.args, 'noise_std', 0.0) > 0:
+                    batch_x = batch_x + torch.randn_like(batch_x) * self.args.noise_std
 
                 if 'PEMS' in self.args.data or 'Solar' in self.args.data or 'stress' in self.args.data:
                     batch_x_mark = None
@@ -343,15 +351,17 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             os.fsync(f.fileno())
         print("Logged to result_long_term_forecast.txt")
 
-        # New CSV logging
-        summary_path = './test_results/summary.csv'
+        # New CSV logging with isolation support
+        summary_filename = getattr(self.args, 'summary_file', 'summary.csv')
+        summary_path = os.path.join('./test_results', summary_filename)
+        
         if not os.path.exists('./test_results'):
             os.makedirs('./test_results')
             
         file_exists = os.path.isfile(summary_path)
         with open(summary_path, 'a', newline='') as csvfile:
             headers = ['timestamp', 'model_id', 'model', 'data', 'mse', 'mae', 'flops_G', 'params_M', 'train_vram_GB', 'train_time_s', 'test_vram_GB', 
-                       'infer_latency_s', 'infer_speed_items_s', 'num_groups', 'pooling', 'dynamic_VR', 'dynamic_Bridge', 'dynamic_tokens', 'setting']
+                       'infer_latency_s', 'infer_speed_items_s', 'num_groups', 'pooling', 'dynamic_VR', 'dynamic_Bridge', 'dynamic_tokens', 'shuffling', 'seed', 'setting']
             writer = csv.DictWriter(csvfile, fieldnames=headers)
             if not file_exists:
                 writer.writeheader()
@@ -371,10 +381,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 'infer_latency_s': f"{inference_latency:.4f}",
                 'infer_speed_items_s': f"{inference_speed:.2f}",
                 'num_groups': getattr(self.args, 'num_groups', 0),
-                'pooling': getattr(self.args, 'pooling', 'none'),
-                'dynamic_VR': getattr(self.args, 'use_variable_resolution', 0),
-                'dynamic_Bridge': getattr(self.args, 'use_interaction_bridge', 0),
+                'pooling': getattr(self.args, 'pooling', 'statistical'),
+                'dynamic_VR': getattr(self.args, 'use_variable_resolution', 1),
+                'dynamic_Bridge': getattr(self.args, 'use_interaction_bridge', 1),
                 'dynamic_tokens': getattr(self.args, 'dynamic_tokens_per_group', 1),
+                'shuffling': getattr(self.args, 'use_shuffling', 0),
+                'seed': getattr(self.args, 'seed', -1),
                 'setting': setting
             })
             csvfile.flush()
@@ -384,6 +396,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe, total_flops, total_params, inference_peak_vram]))
         np.save(folder_path + 'pred.npy', preds)
         np.save(folder_path + 'true.npy', trues)
+
+        # Save visualization data (Salience/Interaction gates) if available
+        if self.args.output_attention and 'attns' in locals():
+            torch.save(attns, folder_path + 'viz_data.pt')
+            print(f"Visualization data saved to {folder_path}viz_data.pt")
 
         return
 
