@@ -235,3 +235,9 @@ mse:0.4587261378765106, mae:0.30407053232192993, flops:11.1043G, params:12.8326M
 traffic_baseline_h336_s2025_iTransformer_custom_M_ft96_sl48_ll336_pl512_dm8_nh4_el1_dl2048_df1_fctimeF_ebTrue_dttest_projection_0  
 mse:0.454224556684494, mae:0.3003857731819153, flops:11.1043G, params:12.8326M, train_vram:6.4746GB, train_time:18.9510s, test_vram:6.4746GB, infer_latency:0.0133s, infer_speed:1205.28items/s
 
+traffic_vgit_g32_h336_s2025_VG_iTransformer_custom_M_ft96_sl48_ll336_pl512_dm8_nh4_el1_dl2048_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.45907700061798096, mae:0.3042196035385132, flops:11.1043G, params:12.8326M, train_vram:2.8008GB, train_time:15.5061s, test_vram:2.8008GB, infer_latency:0.0146s, infer_speed:1094.66items/s
+
+traffic_baseline_h720_s2021_iTransformer_custom_M_ft96_sl48_ll720_pl512_dm8_nh4_el1_dl2048_df1_fctimeF_ebTrue_dttest_projection_0  
+mse:0.4890493154525757, mae:0.3218853175640106, flops:11.2746G, params:13.0296M, train_vram:6.6152GB, train_time:20.0620s, test_vram:6.6152GB, infer_latency:0.0169s, infer_speed:944.65items/s
+
