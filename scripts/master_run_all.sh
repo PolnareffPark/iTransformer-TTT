@@ -11,6 +11,9 @@
 #
 #   nohup bash scripts/master_run_all.sh > master_execution.log 2>&1 &
 #   tail -f master_execution.log  # 진행 상황 모니터링
+#
+# [Emergency Stop]
+#   pkill -f "master_run_all.sh|run.py|python -u run.py"
 # ==========================================================
 
 # Log file for master execution status

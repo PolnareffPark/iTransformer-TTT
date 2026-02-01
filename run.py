@@ -102,10 +102,8 @@ if __name__ == '__main__':
     parser.add_argument('--partial_start_index', type=int, default=0, help='the start index of variates for partial training, '
                                                                            'you can select [partial_start_index, min(enc_in + partial_start_index, N)]')
 
-    # TTT
-    parser.add_argument('--use_ttt', action='store_true', help='whether to use Test-Time Training', default=False)
-    parser.add_argument('--ttt_lr', type=float, default=0.0001, help='learning rate for TTT')
-    parser.add_argument('--ttt_steps', type=int, default=1, help='number of gradient steps for TTT')
+    # Output dir settings
+    parser.add_argument('--output_subdir', type=str, default=None, help='subdirectory for checkpoints and results')
 
     # VG-iT
     parser.add_argument('--num_groups', type=int, default=8, help='number of groups for VG-iT')
