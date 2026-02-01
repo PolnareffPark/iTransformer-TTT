@@ -13,7 +13,7 @@
 #   tail -f master_execution.log  # 진행 상황 모니터링
 #
 # [Emergency Stop]
-#   pkill -f "master_run_all.sh|run.py|python -u run.py"
+#   pkill -9 -f "run.py" && pkill -9 -f "master_run_all.sh" && pkill -9 -f "full_benchmark_vgit.sh"
 # ==========================================================
 
 # Log file for master execution status

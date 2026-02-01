@@ -42,7 +42,7 @@ for pl in "${pred_lens[@]}"; do
         echo "[1/2] iTransformer Baseline..."
         run_python \
           --is_training 1 \
-          --root_path ./dataset/ \
+          --root_path ./dataset/traffic/ \
           --data_path traffic.csv \
           --model_id "traffic_baseline_h${pl}_s${seed}" \
           --model iTransformer \
@@ -63,7 +63,7 @@ for pl in "${pred_lens[@]}"; do
         echo "[2/2] VG-iT G32 Fixed..."
         run_python \
           --is_training 1 \
-          --root_path ./dataset/ \
+          --root_path ./dataset/traffic/ \
           --data_path traffic.csv \
           --model_id "traffic_vgit_g32_h${pl}_s${seed}" \
           --model VG_iTransformer \
@@ -97,7 +97,7 @@ for pl in "${pred_lens[@]}"; do
         echo "[1/2] iTransformer Baseline..."
         run_python \
           --is_training 1 \
-          --root_path ./dataset/ \
+          --root_path ./dataset/electricity/ \
           --data_path electricity.csv \
           --model_id "electricity_baseline_h${pl}_s${seed}" \
           --model iTransformer \
@@ -118,7 +118,7 @@ for pl in "${pred_lens[@]}"; do
         echo "[2/2] VG-iT G32 Fixed..."
         run_python \
           --is_training 1 \
-          --root_path ./dataset/ \
+          --root_path ./dataset/electricity/ \
           --data_path electricity.csv \
           --model_id "electricity_vgit_g32_h${pl}_s${seed}" \
           --model VG_iTransformer \

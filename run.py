@@ -2,7 +2,6 @@ import argparse
 import torch
 from experiments.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from experiments.exp_long_term_forecasting_partial import Exp_Long_Term_Forecast_Partial
-from experiments.exp_ttt import Exp_TTT
 import random
 import numpy as np
 import sys
@@ -144,9 +143,6 @@ if __name__ == '__main__':
 
     if args.exp_name == 'partial_train': # See Figure 8 of our paper, for the detail
         Exp = Exp_Long_Term_Forecast_Partial
-    elif args.use_ttt:
-        print(">>> Using Test-Time Training (TTT) Experiment <<<")
-        Exp = Exp_TTT
     else: # MTSF: multivariate time series forecasting
         Exp = Exp_Long_Term_Forecast
 
