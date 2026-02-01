@@ -20,12 +20,22 @@ echo "==========================================================" >> $LOG_FILE
 echo "Master Execution Started at $(date)" >> $LOG_FILE
 echo "==========================================================" >> $LOG_FILE
 
-# Ensure GPU 0 is used
 export CUDA_VISIBLE_DEVICES=0
 
+# Define Python Interpreter properly for all subprocesses
+export PYTHON_EXEC="/home/himchan/miniconda3/envs/CTSF/bin/python"
+
 # Progress tracking
-TOTAL_STAGES=4
-CURRENT_STAGE=0
+# Total Runs Calculation:
+# - Full Benchmark: 3 datasets * 4 pred_lens * 3 seeds * 2 models = 72
+# - Phase 1: 3 seeds * 4 pred_lens * 7 models = 84
+# - Phase 2: 3 seeds * (3 noise * 2 models + 9 stress * 2 models) = 3s * (6 + 18) = 72
+# - Phase 3: 3 seeds * (1 base + 3 vgit + 1 base_cntr) = 15
+# GRAND TOTAL = 72 + 84 + 72 + 15 = 243
+GRAND_TOTAL=243
+
+source scripts/utils_progress.sh
+init_progress $GRAND_TOTAL
 
 # Function to run script and check status
 run_stage() {

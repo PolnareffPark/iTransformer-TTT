@@ -21,7 +21,9 @@
 # VG-iT specific: G=32, pooling=mean (our best)
 
 export CUDA_VISIBLE_DEVICES=0
-py_path=/home/himchan/miniconda3/envs/CTSF/bin/python
+
+# Load Process Tracker
+source scripts/utils_progress.sh
 
 pred_lens=(96 192 336 720)
 seeds=(2021 2022 2023)
@@ -38,7 +40,7 @@ for pl in "${pred_lens[@]}"; do
 
         # Baseline
         echo "[1/2] iTransformer Baseline..."
-        $py_path -u run.py \
+        run_python \
           --is_training 1 \
           --root_path ./dataset/ \
           --data_path traffic.csv \
@@ -59,7 +61,7 @@ for pl in "${pred_lens[@]}"; do
 
         # VG-iT
         echo "[2/2] VG-iT G32 Fixed..."
-        $py_path -u run.py \
+        run_python \
           --is_training 1 \
           --root_path ./dataset/ \
           --data_path traffic.csv \
@@ -93,7 +95,7 @@ for pl in "${pred_lens[@]}"; do
 
         # Baseline
         echo "[1/2] iTransformer Baseline..."
-        $py_path -u run.py \
+        run_python \
           --is_training 1 \
           --root_path ./dataset/ \
           --data_path electricity.csv \
@@ -114,7 +116,7 @@ for pl in "${pred_lens[@]}"; do
 
         # VG-iT
         echo "[2/2] VG-iT G32 Fixed..."
-        $py_path -u run.py \
+        run_python \
           --is_training 1 \
           --root_path ./dataset/ \
           --data_path electricity.csv \
@@ -150,7 +152,7 @@ for pl in "${pred_lens[@]}"; do
 
         # Baseline
         echo "[1/2] iTransformer Baseline..."
-        $py_path -u run.py \
+        run_python \
           --is_training 1 \
           --root_path ./dataset/Solar/ \
           --data_path solar_AL.txt \
@@ -170,7 +172,7 @@ for pl in "${pred_lens[@]}"; do
 
         # VG-iT
         echo "[2/2] VG-iT G32 Fixed..."
-        $py_path -u run.py \
+        run_python \
           --is_training 1 \
           --root_path ./dataset/Solar/ \
           --data_path solar_AL.txt \

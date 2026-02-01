@@ -35,6 +35,9 @@ else
     debug_args="--train_epochs 100 --patience 5"
 fi
 
+# Load Process Tracker
+source scripts/utils_progress.sh
+
 # Aligned with Phase 1 (Author default d_ff=512)
 common_args="--is_training 1 \
   --root_path ./dataset/traffic/ \
@@ -66,10 +69,10 @@ do
     do
         echo ">>> Testing Noise STD: $noise <<<"
         # VG-iT (Ours) - G32 Fixed Mean
-        python -u run.py $common_args --model_id traffic_vgit_n${noise}_s${seed} --noise_std $noise --seed $seed
+        run_python $common_args --model_id traffic_vgit_n${noise}_s${seed} --noise_std $noise --seed $seed
         
         # iTransformer (Baseline) - for direct comparison in noisy env
-        python -u run.py $common_args --model iTransformer --model_id traffic_base_n${noise}_s${seed} --noise_std $noise --seed $seed
+        run_python $common_args --model iTransformer --model_id traffic_base_n${noise}_s${seed} --noise_std $noise --seed $seed
     done
 
     echo "=== [Seed: $seed] Phase 2.2 OOM Death Match (Stress Test) ==="
@@ -82,7 +85,7 @@ do
         
         # VG-iT (G=32 - Best Pareto)
         # Using --data stress and stress_{N}.csv for virtual high-dim data
-        python -u run.py $common_args \
+        run_python $common_args \
             --model_id stress_vgit_n${n_vars}_s${seed} \
             --model VG_iTransformer \
             --data stress \
@@ -93,7 +96,7 @@ do
             --seed $seed
         
         # Baseline (iTransformer)
-        python -u run.py $common_args \
+        run_python $common_args \
             --model_id stress_base_n${n_vars}_s${seed} \
             --model iTransformer \
             --data stress \

@@ -38,6 +38,9 @@ else
     debug_args="--train_epochs 100 --patience 5"
 fi
 
+# Load Process Tracker
+source scripts/utils_progress.sh
+
 # Standard config (G=32, Statistical Pooling)
 # Formatted for readability
 common_args="--is_training 1 \
@@ -66,26 +69,26 @@ do
     do
         # BASELINE (Standard VG-iT)
         echo ">>> [BASE] G=32, H=$h, Seed=$seed <<<"
-        python -u run.py $common_args --model_id traffic_base_h${h}_s${seed} --pred_len $h --num_groups 32 --seed $seed
+        run_python $common_args --model_id traffic_base_h${h}_s${seed} --pred_len $h --num_groups 32 --seed $seed
 
         # 1.1 Systemic Locality (Ablation 1: Shuffling)
         echo ">>> [SHUFFLE] Ablation 1, H=$h, Seed=$seed <<<"
-        python -u run.py $common_args --model_id traffic_shuff_h${h}_s${seed} --pred_len $h --num_groups 32 --use_shuffling 1 --seed $seed
+        run_python $common_args --model_id traffic_shuff_h${h}_s${seed} --pred_len $h --num_groups 32 --use_shuffling 1 --seed $seed
 
         # 1.2 Communication Necessity (Ablation 4: No Global Interaction)
         echo ">>> [NO-INTERACT] Ablation 4, H=$h, Seed=$seed <<<"
-        python -u run.py $common_args --model_id traffic_nointer_h${h}_s${seed} --pred_len $h --num_groups 32 --use_global_interact 0 --seed $seed
+        run_python $common_args --model_id traffic_nointer_h${h}_s${seed} --pred_len $h --num_groups 32 --use_global_interact 0 --seed $seed
 
         # 1.3 Bridge Necessity (Ablation 6: No Gated Bridge)
         # Note: --use_interaction_bridge 0 implements SIMPLE ADDITIVE RESIDUAL (H_local + H_global)
         echo ">>> [BRIDGE] Ablation 6, H=$h, Seed=$seed <<<"
-        python -u run.py $common_args --model_id traffic_bridge_h${h}_s${seed} --pred_len $h --num_groups 32 --use_interaction_bridge 0 --seed $seed
+        run_python $common_args --model_id traffic_bridge_h${h}_s${seed} --pred_len $h --num_groups 32 --use_interaction_bridge 0 --seed $seed
 
         # 1.4 G-Sensitivity (Ablation 5)
         for g in 8 16 64
         do
             echo ">>> [G-SENS] G=$g, H=$h, Seed=$seed <<<"
-            python -u run.py $common_args --model_id traffic_g${g}_h${h}_s${seed} --pred_len $h --num_groups $g --seed $seed
+            run_python $common_args --model_id traffic_g${g}_h${h}_s${seed} --pred_len $h --num_groups $g --seed $seed
         done
     done
 done

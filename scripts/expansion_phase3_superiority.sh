@@ -40,6 +40,9 @@ else
     debug_args="--train_epochs 100 --patience 5"
 fi
 
+# Load Process Tracker
+source scripts/utils_progress.sh
+
 # Aligned with Phase 1 parameters
 common_args="--is_training 1 \
   --root_path ./dataset/traffic/ \
@@ -70,19 +73,19 @@ do
     
     # BASELINE: L=96 (Minimum Asset)
     echo ">>> Running Baseline (L=96) <<<"
-    python -u run.py $common_args --model iTransformer --model_id traffic_base_L96_s${seed} --seq_len 96 --seed $seed
+    run_python $common_args --model iTransformer --model_id traffic_base_L96_s${seed} --seq_len 96 --seed $seed
 
     # VG-iT: Expansion to L=720 (Asset Exchange)
     # Testing how VRAM savings from variate-grouping allow for larger temporal context
     for l in 192 336 720
     do
         echo ">>> Testing VG-iT with Expanded L: $l <<<"
-        python -u run.py $common_args --model_id traffic_vgit_L${l}_s${seed} --seq_len $l --seed $seed
+        run_python $common_args --model_id traffic_vgit_L${l}_s${seed} --seq_len $l --seed $seed
     done
     
     # Optional: Test Baseline L=720 to show it's either too slow or OOM-prone compared to VG-iT
     echo ">>> Testing Baseline with Expanded L: 720 (Counter-example) <<<"
-    python -u run.py $common_args --model iTransformer --model_id traffic_base_L720_s${seed} --seq_len 720 --seed $seed
+    run_python $common_args --model iTransformer --model_id traffic_base_L720_s${seed} --seq_len 720 --seed $seed
 done
 
 echo "Phase 3 Aggressive Superiority finished. Results: test_results/$summary_file"
