@@ -37,7 +37,7 @@ fi
 
 # Aligned with Phase 1 (Author default d_ff=512)
 common_args="--is_training 1 \
-  --root_path ./dataset/ \
+  --root_path ./dataset/traffic/ \
   --data_path traffic.csv \
   --model $model_name \
   --data custom \
@@ -62,7 +62,7 @@ common_args="--is_training 1 \
 for seed in 2021 2022 2023
 do
     echo "=== [Seed: $seed] Phase 2.1 Noise Robustness Study ==="
-    for noise in 0.1 0.2 0.5
+    for noise in 0.1 0.3 0.5
     do
         echo ">>> Testing Noise STD: $noise <<<"
         # VG-iT (Ours) - G32 Fixed Mean
@@ -74,15 +74,33 @@ do
 
     echo "=== [Seed: $seed] Phase 2.2 OOM Death Match (Stress Test) ==="
     # OOM stress tests: finding the limit where iTransformer dies but VG-iT survives.
-    # Range expanded up to N=20,000 for aggressive benchmarking.
+    # Range expanded up to N=30,000 for aggressive benchmarking.
+    # Uses Dataset_StressTest (virtual data) to simulate high N.
     for n_vars in 1000 2000 5000 8000 10000 15000 20000 25000 30000
     do
         echo ">>> Stress Test: N=$n_vars <<<"
-        # VG-iT (G=32 - Best Pareto, proving its scalability)
-        python -u run.py $common_args --model_id stress_vgit_n${n_vars}_s${seed} --enc_in $n_vars --dec_in $n_vars --c_out $n_vars --num_groups 32 --train_epochs 1 --batch_size 4 --seed $seed
         
-        # Baseline (iTransformer) -> Expected to OOM between 5000-10000 on 3090
-        python -u run.py $common_args --model iTransformer --model_id stress_base_n${n_vars}_s${seed} --enc_in $n_vars --dec_in $n_vars --c_out $n_vars --train_epochs 1 --batch_size 4 --seed $seed
+        # VG-iT (G=32 - Best Pareto)
+        # Using --data stress and stress_{N}.csv for virtual high-dim data
+        python -u run.py $common_args \
+            --model_id stress_vgit_n${n_vars}_s${seed} \
+            --model VG_iTransformer \
+            --data stress \
+            --data_path stress_${n_vars}.csv \
+            --enc_in $n_vars --dec_in $n_vars --c_out $n_vars \
+            --num_groups 32 \
+            --train_epochs 1 --batch_size 4 \
+            --seed $seed
+        
+        # Baseline (iTransformer)
+        python -u run.py $common_args \
+            --model_id stress_base_n${n_vars}_s${seed} \
+            --model iTransformer \
+            --data stress \
+            --data_path stress_${n_vars}.csv \
+            --enc_in $n_vars --dec_in $n_vars --c_out $n_vars \
+            --train_epochs 1 --batch_size 4 \
+            --seed $seed
     done
 done
 

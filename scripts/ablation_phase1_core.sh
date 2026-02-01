@@ -5,7 +5,7 @@
 #   - GPU: 1 (Shared resources, use for accuracy/VRAM only, ignore time)
 #   - Dataset: Traffic (N=862)
 #   - Prediction Length (H): 96, 720
-#   - Seeds: 2021, 2022, 2025 (3-Seed for statistical significance)
+#   - Seeds: 2021, 2022, 2023 (3-Seed for statistical significance)
 #   - Hyperparameters: e_layers=4, d_model=512, d_ff=512 (Author's default)
 # ==========================================================
 # [Usage]
@@ -41,7 +41,7 @@ fi
 # Standard config (G=32, Statistical Pooling)
 # Formatted for readability
 common_args="--is_training 1 \
-  --root_path ./dataset/ \
+  --root_path ./dataset/traffic/ \
   --data_path traffic.csv \
   --model $model_name \
   --data custom \

@@ -42,7 +42,7 @@ fi
 
 # Aligned with Phase 1 parameters
 common_args="--is_training 1 \
-  --root_path ./dataset/ \
+  --root_path ./dataset/traffic/ \
   --data_path traffic.csv \
   --model $model_name \
   --data custom \
