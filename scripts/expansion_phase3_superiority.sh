@@ -23,11 +23,22 @@
 #   Future: Can be scaled to A100 (80GB) by increasing batch_size or seq_len.
 # ==========================================================
 
-# Default to GPU 1, but allow override from command line
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}
+export CUDA_VISIBLE_DEVICES=0
 
 model_name=VG_iTransformer
-summary_file=summary_expansion_phase3_superiority.csv
+if [ "$DEBUG" == "1" ]; then
+    summary_file=summary_expansion_phase3_superiority_debug.csv
+else
+    summary_file=summary_expansion_phase3_superiority.csv
+fi
+
+# Check for DEBUG mode
+if [ "$DEBUG" == "1" ]; then
+    echo "!!! DEBUG MODE ENABLED: Running fast checks (1 epoch, limited iters) !!!"
+    debug_args="--debug 1 --train_epochs 1 --patience 1"
+else
+    debug_args="--train_epochs 100 --patience 5"
+fi
 
 # Aligned with Phase 1 parameters
 common_args="--is_training 1 \
@@ -45,9 +56,8 @@ common_args="--is_training 1 \
   --d_model 512 \
   --d_ff 512 \
   --batch_size 16 \
-  --learning_rate 0.0001 \
-  --train_epochs 100 \
-  --patience 5 \
+  --learning_rate 0.001 \
+  $debug_args \
   --pooling mean \
   --num_groups 32 \
   --summary_file $summary_file"

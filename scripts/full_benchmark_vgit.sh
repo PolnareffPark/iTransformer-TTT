@@ -3,10 +3,10 @@
 # ==========================================================
 # [Usage]
 #   Run in background:
-#     nohup bash scripts/full_benchmark_vgit.sh > full_benchmark.log 2>&1 &
+#     nohup bash scripts/full_benchmark_vgit.sh > full_benchmark_clean.log 2>&1 &
 #
 #   Check log:
-#     tail -f full_benchmark.log
+#     tail -f full_benchmark_clean.log
 #
 # [Termination]
 #   Stop all benchmark processes:
@@ -40,7 +40,7 @@ for data_path in "${datasets[@]}"; do
             echo "Running Full Benchmark: Data=$data_path, Pred_Len=$pl, Seed=$seed"
             echo "=========================================================="
 
-            # 1. iTransformer Baseline (Standard df2048)
+            # 1. iTransformer Baseline (Standard df512)
             echo "[1/2] Standard Baseline..."
             $py_path -u run.py \
               --is_training 1 \
@@ -58,14 +58,14 @@ for data_path in "${datasets[@]}"; do
               --dec_in $enc_in \
               --c_out $enc_in \
               --d_model 512 \
-              --d_ff 2048 \
+              --d_ff 512 \
               --batch_size 16 \
-              --learning_rate 0.0001 \
+              --learning_rate 0.001 \
               --train_epochs 100 \
               --patience 5 \
               --seed $seed
 
-            # 2. VG-iT G32 Fixed (Standard df2048)
+            # 2. VG-iT G32 Fixed (Standard df512)
             echo "[2/2] VG-iT G32 Fixed..."
             $py_path -u run.py \
               --is_training 1 \
@@ -83,9 +83,9 @@ for data_path in "${datasets[@]}"; do
               --dec_in $enc_in \
               --c_out $enc_in \
               --d_model 512 \
-              --d_ff 2048 \
+              --d_ff 512 \
               --batch_size 16 \
-              --learning_rate 0.0001 \
+              --learning_rate 0.001 \
               --train_epochs 100 \
               --patience 5 \
               --num_groups 32 \

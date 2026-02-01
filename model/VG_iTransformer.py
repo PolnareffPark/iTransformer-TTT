@@ -86,17 +86,19 @@ class Model(nn.Module):
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
         
-        # Project and Restore Order
-        dec_out = self.projector(enc_out).permute(0, 2, 1) # [B, L, N]
+        # Project and Filter covariates (if any)
+        dec_out = self.projector(enc_out).permute(0, 2, 1)[:, :, :N]
         
-        if self.use_shuffling:
-            dec_out = dec_out[:, :, self.inverse_indices]
-
+        # De-Normalize while in current order (shuffled or original)
         if self.use_norm:
             dec_out = dec_out * (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
             dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
 
-        return dec_out[:, :, :N], attns
+        # Restore original order if shuffled (Ablation 1)
+        if self.use_shuffling:
+            dec_out = dec_out[:, :, self.inverse_indices]
+
+        return dec_out, attns
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         dec_out, attns = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)

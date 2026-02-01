@@ -178,6 +178,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     loss.backward()
                     model_optim.step()
 
+                if self.args.debug and (i + 1) >= 10:
+                    print("DEBUG MODE: Breaking epoch early after 10 iterations")
+                    break
+
+
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)

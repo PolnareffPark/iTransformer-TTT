@@ -25,7 +25,18 @@
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}
 
 model_name=VG_iTransformer
-summary_file=summary_ablation_phase1_core.csv
+if [ "$DEBUG" == "1" ]; then
+    summary_file=summary_ablation_phase1_core_debug.csv
+else
+    summary_file=summary_ablation_phase1_core.csv
+fi
+# Check for DEBUG mode
+if [ "$DEBUG" == "1" ]; then
+    echo "!!! DEBUG MODE ENABLED: Running fast checks (1 epoch, limited iters) !!!"
+    debug_args="--debug 1 --train_epochs 1 --patience 1"
+else
+    debug_args="--train_epochs 100 --patience 5"
+fi
 
 # Standard config (G=32, Statistical Pooling)
 # Formatted for readability
@@ -44,9 +55,8 @@ common_args="--is_training 1 \
   --d_model 512 \
   --d_ff 512 \
   --batch_size 16 \
-  --learning_rate 0.0001 \
-  --train_epochs 100 \
-  --patience 5 \
+  --learning_rate 0.001 \
+  $debug_args \
   --summary_file $summary_file"
 
 for seed in 2021 2022 2023
