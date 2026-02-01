@@ -105,9 +105,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_subdir', type=str, default=None, help='subdirectory for checkpoints and results')
 
     # VG-iT
-    parser.add_argument('--num_groups', type=int, default=8, help='number of groups for VG-iT')
-    parser.add_argument('--pooling', type=str, default='statistical', choices=['mean', 'statistical', 'learnable', 'dynamic'], 
-                        help='pooling strategy for hierarchical attention')
+    parser.add_argument('--num_groups', type=int, default=32, help='number of groups for VG-iT')
+    parser.add_argument('--pooling', type=str, default='mean', choices=['mean', 'statistical', 'learnable', 'dynamic'], help='pooling strategy for hierarchical attention')
     parser.add_argument('--use_global_interact', type=int, default=1, help='whether to use inter-group communication (Ablation 4)')
     parser.add_argument('--use_learnable_grouping', action='store_true', help='whether to use learnable grouping layer')
     
@@ -196,13 +195,14 @@ if __name__ == '__main__':
             exp = Exp(args)  # set experiments
             
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-            print('--- VG-iT Configurations ---')
-            print('Pooling: {}'.format(args.pooling))
-            print('Num Groups: {}'.format(args.num_groups))
-            if args.pooling == 'dynamic':
-                print('Variable Resolution: {}'.format(bool(args.use_variable_resolution)))
-                print('Interaction Bridge: {}'.format(bool(args.use_interaction_bridge)))
-            print('----------------------------')
+            if args.model == 'VG_iTransformer':
+                print('--- VG-iT Configurations ---')
+                print('Pooling: {}'.format(args.pooling))
+                print('Num Groups: {}'.format(args.num_groups))
+                if args.pooling == 'dynamic':
+                    print('Variable Resolution: {}'.format(bool(args.use_variable_resolution)))
+                    print('Interaction Bridge: {}'.format(bool(args.use_interaction_bridge)))
+                print('----------------------------')
             
             exp.train(setting)
 

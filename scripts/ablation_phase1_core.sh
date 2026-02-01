@@ -61,6 +61,7 @@ common_args="--is_training 1 \
   --learning_rate 0.001 \
   --output_subdir ablation/phase1 \
   $debug_args \
+  --pooling mean \
   --summary_file $summary_file"
 
 for seed in 2021 2022 2023
