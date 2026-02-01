@@ -22,7 +22,7 @@
 # ==========================================================
 
 # Default to GPU 1, but allow override from command line
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}
+export CUDA_VISIBLE_DEVICES=0
 
 model_name=VG_iTransformer
 if [ "$DEBUG" == "1" ]; then
@@ -56,6 +56,7 @@ common_args="--is_training 1 \
   --d_ff 512 \
   --batch_size 16 \
   --learning_rate 0.001 \
+  --output_subdir ablation/phase1 \
   $debug_args \
   --summary_file $summary_file"
 

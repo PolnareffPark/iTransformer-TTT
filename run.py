@@ -177,9 +177,23 @@ if __name__ == '__main__':
                 ii)
 
             # Create folder for results/logs
-            log_folder = './results/' + setting + '/'
+            if args.output_subdir:
+                log_folder = os.path.join('./results', args.output_subdir, setting)
+            else:
+                log_folder = os.path.join('./results', setting)
+            
             if not os.path.exists(log_folder):
                 os.makedirs(log_folder)
+            
+            # Setup checkpoints path
+            if args.output_subdir:
+                real_checkpoints_path = os.path.join('./checkpoints', args.output_subdir)
+            else:
+                real_checkpoints_path = './checkpoints/'
+            
+            import copy
+            exp_args = copy.deepcopy(args)
+            exp_args.checkpoints = real_checkpoints_path
             
             # Redirect stdout and stderr to the log file
             sys.stdout = Logger(os.path.join(log_folder, 'log.txt'), sys.stdout)
@@ -232,7 +246,17 @@ if __name__ == '__main__':
             args.class_strategy,
             ii)
 
-        exp = Exp(args)  # set experiments
+        # Setup checkpoints path
+        if args.output_subdir:
+            real_checkpoints_path = os.path.join('./checkpoints', args.output_subdir)
+        else:
+            real_checkpoints_path = './checkpoints/'
+        
+        import copy
+        exp_args = copy.deepcopy(args)
+        exp_args.checkpoints = real_checkpoints_path
+
+        exp = Exp(exp_args)  # set experiments
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, test=1)
         torch.cuda.empty_cache()

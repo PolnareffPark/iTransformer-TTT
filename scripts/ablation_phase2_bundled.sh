@@ -53,6 +53,7 @@ common_args="--is_training 1 \
   --d_ff 512 \
   --batch_size 16 \
   --learning_rate 0.001 \
+  --output_subdir ablation/phase2 \
   $debug_args \
   --pooling mean \
   --num_groups 32 \

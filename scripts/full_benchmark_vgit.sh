@@ -61,6 +61,7 @@ for data_path in "${datasets[@]}"; do
               --d_ff 512 \
               --batch_size 16 \
               --learning_rate 0.001 \
+              --output_subdir benchmarks/baseline \
               --train_epochs 100 \
               --patience 5 \
               --seed $seed
@@ -86,6 +87,7 @@ for data_path in "${datasets[@]}"; do
               --d_ff 512 \
               --batch_size 16 \
               --learning_rate 0.001 \
+              --output_subdir benchmarks/vgit_g32 \
               --train_epochs 100 \
               --patience 5 \
               --num_groups 32 \
