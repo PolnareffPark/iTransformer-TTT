@@ -222,6 +222,44 @@ class Exp_Long_Term_Forecast(Exp_Basic):
     def profile_model(self):
         """Separate profiling run to avoid impact on main experiment timing"""
         if profile is not None:
+            from layers.SelfAttention_Family import FullAttention
+            from layers.Hierarchical_Attention import HierarchicalAttention
+            
+            def count_full_attention(m, x, y):
+                # x: (queries, keys, values, attn_mask, tau, delta)
+                queries, keys, values = x[0], x[1], x[2]
+                B, L, H, E = queries.shape
+                _, S, _, D = values.shape
+                # einsum("blhe,bshe->bhls")
+                flops_qk = B * H * L * S * E * 2
+                # einsum("bhls,bshd->blhd")
+                flops_av = B * H * L * S * D * 2
+                m.total_ops += torch.DoubleTensor([flops_qk + flops_av])
+
+            def count_hierarchical_attention(m, x, y):
+                # x: (queries, keys, values, attn_mask, tau, delta)
+                queries, keys, values = x[0], x[1], x[2]
+                B, N, H, D = queries.shape
+                G = m.num_groups
+                # Pad if N not divisible by G
+                pad_len = (G - (N % G)) % G
+                N_padded = N + pad_len
+                M = N_padded // G
+                
+                # 1. Local Attention: G groups of (M x M) attention
+                # einsum ops: B * G * H * M * M * D * 2 (for QK and AV)
+                flops_local = B * G * H * M * M * D * 2 * 2 
+                
+                # 2. Global Attention: 1 group of (G x G) attention (simplified)
+                # or statistical (3*G x 3*G)
+                if m.pooling == 'statistical':
+                    G_global = G * 3
+                else:
+                    G_global = G
+                flops_global = B * H * G_global * G_global * D * 2 * 2
+                
+                m.total_ops += torch.DoubleTensor([flops_local + flops_global])
+
             self.model.eval()
             try:
                 # Use a dummy input for profiling
@@ -230,7 +268,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 dummy_dec = torch.randn(1, self.args.label_len + self.args.pred_len, self.args.dec_in).to(self.device)
                 dummy_y_mark = torch.randn(1, self.args.label_len + self.args.pred_len, 4).to(self.device) if not ('PEMS' in self.args.data or 'Solar' in self.args.data) else None
                 
-                flops, params = profile(self.model, inputs=(dummy_x, dummy_mark, dummy_dec, dummy_y_mark), verbose=False)
+                custom_ops = {
+                    FullAttention: count_full_attention,
+                    HierarchicalAttention: count_hierarchical_attention
+                }
+                
+                flops, params = profile(self.model, inputs=(dummy_x, dummy_mark, dummy_dec, dummy_y_mark), 
+                                        custom_ops=custom_ops, verbose=False)
                 return flops, params
             except Exception as e:
                 print(f"Error profiling model: {e}")
